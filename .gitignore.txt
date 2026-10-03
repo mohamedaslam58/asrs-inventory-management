@@ -10,3 +10,8 @@ frontend/.env
 # Ignore build folders
 frontend/dist/
 frontend/build/
+
+# Ignore node modules and local environment files when you start adding them
+backend/node_modules/
+frontend/node_modules/
+.env
