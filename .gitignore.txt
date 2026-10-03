@@ -1,5 +1,12 @@
-node_modules/
-dist/
-.next/
+# Ignore dependencies
+backend/node_modules/
+frontend/node_modules/
+
+# Ignore environment variables / secrets
+backend/.env
+frontend/.env
 .env
-*.log
+
+# Ignore build folders
+frontend/dist/
+frontend/build/
