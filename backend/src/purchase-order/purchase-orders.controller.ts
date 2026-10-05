@@ -18,8 +18,8 @@ export class PurchaseOrdersController {
     return this.poService.updateStatus(Number(id), status);
   }
 
-//   @Post('auto-create')
-//   async autoCreateFromLowStock() {
-//     return this.poService.autoCreateFromLowStock();
-//   }
+  @Post('auto-create')
+  async autoCreateFromLowStock() {
+    return this.poService.autoCreateFromLowStock();
+  }
 }

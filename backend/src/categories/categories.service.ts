@@ -35,8 +35,9 @@ export class CategoriesService {
     return rawMetrics;
   }
 
-  async create(name: string): Promise<Category> {
-    const category = this.categoryRepository.create({ name });
-    return await this.categoryRepository.save(category);
+  async create(categoryDto: Partial<Category>): Promise<Category> {
+    const category = this.categoryRepository.create(categoryDto);
+    const savedCategory = await this.categoryRepository.save(category);
+    return savedCategory;
   }
 }

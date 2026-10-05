@@ -2,9 +2,11 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { Category } from '../../categories/entities/category.entity.js';
+import { Supplier } from '../../suppliers/entities/supplier.entity.js';
 
 @Entity('Item')
 export class Item {
@@ -20,11 +22,27 @@ export class Item {
   @Column({ type: 'varchar' })
   name: string;
 
-  @Column({ type: 'int' })
+  @Column({ type: 'int', nullable: true })
   categoryId: number;
 
-  @Column({ type: 'int' })
+  // Many-to-One relation with Category
+  @ManyToOne(() => Category, (category) => category.id, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'categoryId' })
+  category: Category;
+
+  @Column({ type: 'int', nullable: true })
   supplierId: number;
+
+  // Many-to-One relation with Supplier
+  @ManyToOne(() => Supplier, (supplier) => supplier.id, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'supplierId' })
+  supplier: Supplier;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   unitCost: number;
@@ -37,4 +55,7 @@ export class Item {
 
   @Column({ type: 'boolean', default: false })
   isAsset: boolean;
+
+  @Column({ type: 'int', default: 0 })
+  stock: number;
 }

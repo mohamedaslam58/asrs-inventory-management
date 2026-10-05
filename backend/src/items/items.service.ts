@@ -10,21 +10,27 @@ export class ItemsService {
     private readonly itemRepository: Repository<Item>,
   ) {}
 
-  async findAll(search?: string): Promise<Item[]> {
-    if (search) {
-      return this.itemRepository.find({
-        where: [
-          { name: Like(`%${search}%`) },
-          { sku: Like(`%${search}%`) },
-          { barcode: Like(`%${search}%`) },
-          // { categoryId: Like(`%${search}%`) },
-          // { supplierId: Like(`%${search}%`) },
-        ],
-        order: { id: 'ASC' },
-      });
-    }
-    return this.itemRepository.find({ order: { id: 'ASC' } });
+  async findAll(search?: string): Promise<any[]> {
+  const qb = this.itemRepository
+    .createQueryBuilder('item')
+    .leftJoinAndSelect('Category', 'category', 'category.id = item.categoryId')
+    .leftJoinAndSelect('Supplier', 'supplier', 'supplier.id = item.supplierId')
+    .select([
+      'item.*',
+      'category.name AS "category"',
+      'supplier.name AS "supplier"',
+    ])
+    .orderBy('item.id', 'ASC');
+
+  if (search) {
+    qb.where(
+      'item.name LIKE :search OR item.sku LIKE :search OR item.barcode LIKE :search OR category.name LIKE :search OR supplier.name LIKE :search',
+      { search: `%${search}%` },
+    );
   }
+
+  return await qb.getRawMany();
+}
 
   async create(createItemDto: Partial<Item>): Promise<Item> {
     const item = this.itemRepository.create(createItemDto);

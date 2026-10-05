@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
+import { PurchaseOrder } from '../purchase-order/entities/purchase-order.entity.js';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Item } from '../items/entities/item.entity.js';
 
 export interface LowStockAlertRow {
   itemId: number;
@@ -15,100 +18,124 @@ export interface LowStockAlertRow {
 
 @Injectable()
 export class LowStockService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+      @InjectRepository(PurchaseOrder)
+      private readonly poRepository: Repository<PurchaseOrder>,
+      @InjectRepository(Item)
+    private readonly itemRepository: Repository<Item>
+    ) {}
 
   async getAlerts(): Promise<LowStockAlertRow[]> {
-    const rawData = await this.dataSource.query(`
+    const rawData = await this.itemRepository.query(`
       SELECT 
         i.id AS "itemId",
-        i.name AS item,
-        COALESCE(SUM(sl.quantity), 0)::int AS stock,
-        COALESCE(i."reorderPoint", 0)::int AS "reorderPt",
-        CASE 
-          WHEN COALESCE(i."reorderPoint", 0) > COALESCE(SUM(sl.quantity), 0)
-          THEN (i."reorderPoint" - COALESCE(SUM(sl.quantity), 0))::int
-          ELSE 0
-        END AS shortfall,
-        CASE 
-          WHEN COALESCE(i."reorderPoint", 0) > COALESCE(SUM(sl.quantity), 0)
-          THEN GREATEST(
-            ROUND((i."reorderPoint" * 1.5) - COALESCE(SUM(sl.quantity), 0))::int,
-            (i."reorderPoint" - COALESCE(SUM(sl.quantity), 0))::int
-          )
-          ELSE 0
-        END AS "suggestedQty",
-        s.id AS "supplierId",
-        s.name AS supplier,
-        COALESCE(i."unitCost", 0)::float AS "unitCost"
+        i.name AS "item",
+        i.stock AS "stock",
+        i."reorderPoint" AS "reorderPt",
+        (i."reorderPoint" - i.stock) AS "shortfall",
+        GREATEST((i."reorderPoint" * 2) - i.stock, i."reorderPoint") AS "suggestedQty",
+        i."supplierId" AS "supplierId",
+        s.name AS "supplier",
+        i."unitCost" AS "unitCost"
       FROM "Item" i
-      LEFT JOIN "StockLevel" sl ON sl."itemId" = i.id
-      LEFT JOIN "Supplier" s ON s.id = i."supplierId"
-      GROUP BY i.id, i.name, i."reorderPoint", i."unitCost", s.id, s.name
-      HAVING COALESCE(SUM(sl.quantity), 0) < COALESCE(i."reorderPoint", 0)
-      ORDER BY shortfall DESC
+      INNER JOIN "Supplier" s ON s.id = i."supplierId"
+      WHERE i.stock <= i."reorderPoint"
+        AND i."supplierId" IS NOT NULL
+      ORDER BY (i."reorderPoint" - i.stock) DESC
     `);
 
     return rawData;
   }
 
-  async createDraftPOs(): Promise<{ createdCount: number; poNumbers: string[] }> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+  async createDraftPOsFromLowStock(
+    itemsToProcess?: LowStockAlertRow[],
+  ): Promise<PurchaseOrder[]> {
+    let rows = itemsToProcess;
 
-    try {
-      const alerts: LowStockAlertRow[] = await this.getAlerts();
-      if (alerts.length === 0) {
-        return { createdCount: 0, poNumbers: [] };
-      }
-
-      const groupedBySupplier = new Map<number, LowStockAlertRow[]>();
-      for (const alert of alerts) {
-        const list = groupedBySupplier.get(alert.supplierId) || [];
-        list.push(alert);
-        groupedBySupplier.set(alert.supplierId, list);
-      }
-
-      const createdPoNumbers: string[] = [];
-
-      for (const [supplierId, items] of groupedBySupplier.entries()) {
-        const poCountResult = await queryRunner.query(
-          `SELECT COUNT(*)::int AS count FROM "PurchaseOrder"`,
-        );
-        const poSeq = (poCountResult[0]?.count || 0) + createdPoNumbers.length + 1;
-        const poNumber = `PO-2026-${String(poSeq).padStart(3, '0')}`;
-
-        const poResult = await queryRunner.query(
-          `
-          INSERT INTO "PurchaseOrder" ("number", "supplierId", status, auto, "createdAt")
-          VALUES ($1, $2, 'Draft', true, NOW())
-          RETURNING id
-        `,
-          [poNumber, supplierId],
-        );
-
-        const poId = poResult[0].id;
-
-        for (const item of items) {
-          await queryRunner.query(
-            `
-            INSERT INTO "POLine" ("poId", "itemId", qty, "unitCost")
-            VALUES ($1, $2, $3, $4)
-          `,
-            [poId, item.itemId, item.suggestedQty, item.unitCost],
-          );
-        }
-
-        createdPoNumbers.push(poNumber);
-      }
-
-      await queryRunner.commitTransaction();
-      return { createdCount: createdPoNumbers.length, poNumbers: createdPoNumbers };
-    } catch (err) {
-      await queryRunner.rollbackTransaction();
-      throw err;
-    } finally {
-      await queryRunner.release();
+    // 1. If no payload provided, fetch current low stock alerts directly
+    if (!rows || rows.length === 0) {
+      rows = await this.getAlerts();
     }
+
+    if (!rows.length) {
+      return [];
+    }
+
+    // 2. Fetch existing open POs (DRAFT, SENT, APPROVED) to avoid creating duplicate lines
+    const activePOs = await this.poRepository.find({
+      where: {
+        status: In(['DRAFT', 'SENT', 'APPROVED']),
+      },
+      relations: {
+        lines: true,
+      },
+    });
+
+    const activeItemIds = new Set<number>();
+    activePOs.forEach((po: any) => {
+      po.lines?.forEach((line: any) => {
+        if (line.itemId) activeItemIds.add(line.itemId);
+      });
+    });
+
+    // 3. Filter out items that already have open PO lines
+    const pendingItems = rows.filter(
+      (row) => !activeItemIds.has(row.itemId),
+    );
+
+    if (!pendingItems.length) {
+      return [];
+    }
+
+    // 4. Group items by supplierId
+    const supplierMap = new Map<number, LowStockAlertRow[]>();
+    for (const item of pendingItems) {
+      const list = supplierMap.get(item.supplierId) || [];
+      list.push(item);
+      supplierMap.set(item.supplierId, list);
+    }
+
+    const createdPOs: PurchaseOrder[] = [];
+
+    // 5. Sequential PO Number generation (PO-2026-XXX format)
+    const currentPOCount = await this.poRepository.count();
+    let poSeq = currentPOCount + 1;
+    const currentYear = new Date().getFullYear();
+
+    for (const [supplierId, items] of supplierMap.entries()) {
+      const formattedSeq = String(poSeq).padStart(3, '0');
+      const poNumber = `PO-${currentYear}-${formattedSeq}`;
+
+      // Build POLine records using UI table values (suggestedQty & unitCost)
+      const lines = items.map((row) => {
+        const qty = Number(row.suggestedQty || row.shortfall || 1);
+        const unitCost = Number(row.unitCost || 0);
+
+        return {
+          itemId: row.itemId,
+          qty: qty,
+          unitCost: unitCost,
+          total: qty * unitCost,
+          item: { id: row.itemId },
+        };
+      });
+
+      // Assemble new Purchase Order entity matching DB schema
+      const newPO = this.poRepository.create({
+        number: poNumber,
+        supplierId: supplierId,
+        status: 'DRAFT',
+        auto: true,
+        createdAt: new Date(),
+        lines: lines as any,
+      });
+
+      const savedPO = await this.poRepository.save(newPO);
+      createdPOs.push(savedPO);
+      poSeq++;
+    }
+
+    return createdPOs;
   }
 }

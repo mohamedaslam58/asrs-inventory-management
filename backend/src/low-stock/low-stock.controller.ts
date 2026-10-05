@@ -12,6 +12,6 @@ export class LowStockController {
 
   @Post('create-draft-pos')
   async createDraftPOs() {
-    return this.lowStockService.createDraftPOs();
+    return this.lowStockService.createDraftPOsFromLowStock();
   }
 }

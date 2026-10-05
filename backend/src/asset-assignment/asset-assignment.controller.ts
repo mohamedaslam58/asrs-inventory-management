@@ -1,5 +1,6 @@
-import { Controller, Get, Patch, Param, Query, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Query, ParseIntPipe, Post, Body } from '@nestjs/common';
 import { AssetAssignmentService } from './asset-assignment.service.js';
+import { CreateAssetAssignmentDto } from './dto/create-asset-assignment.dto.js';
 
 @Controller('asset-assignments')
 export class AssetAssignmentController {
@@ -13,5 +14,10 @@ export class AssetAssignmentController {
   @Patch(':id/return')
   async markAsReturned(@Param('id', ParseIntPipe) id: number) {
     return this.service.markAsReturned(id);
+  }
+
+  @Post()
+  async create(@Body() dto: CreateAssetAssignmentDto) {
+    return this.service.create(dto);
   }
 }

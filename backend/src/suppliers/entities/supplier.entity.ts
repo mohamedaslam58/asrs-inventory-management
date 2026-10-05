@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
+import { Item } from '../../items/entities/item.entity.js';
 
 @Entity('Supplier')
 export class Supplier {
@@ -14,6 +15,9 @@ export class Supplier {
   @Column({ type: 'varchar', length: 50 })
   phone: string;
 
-  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  createdAt: Date;
+  // @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  // createdAt: Date;
+
+  @OneToMany(() => Item, (item) => item.supplier)
+  items: Item[];
 }

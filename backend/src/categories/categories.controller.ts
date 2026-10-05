@@ -11,7 +11,7 @@ export class CategoriesController {
   }
 
   @Post()
-  async createCategory(@Body('name') name: string) {
-    return this.categoriesService.create(name);
+  async createCategory(@Body() categoryDto: any) {
+    return this.categoriesService.create(categoryDto);
   }
 }

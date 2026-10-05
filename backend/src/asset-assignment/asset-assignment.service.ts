@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AssetAssignment } from './entities/asset-assignment.entity.js';
+import { CreateAssetAssignmentDto } from './dto/create-asset-assignment.dto.js';
 
 export interface AssetAssignmentRow {
   id: number;
@@ -57,5 +58,23 @@ export class AssetAssignmentService {
     assignment.returnedAt = new Date();
     await this.repo.save(assignment);
     return { success: true };
+  }
+
+  async create(dto: CreateAssetAssignmentDto): Promise<AssetAssignment> {
+    const itemId = Number(dto.itemId);
+    const warehouseId = Number(dto.warehouseId);
+
+    const newAssignment = this.repo.create({
+      tag: dto.tag,
+      itemId,
+      employee: dto.employee,
+      department: dto.department,
+      warehouseId,
+      issuedAt: dto.issuedAt ? new Date(dto.issuedAt) : new Date(),
+      returnedAt: null,
+    } as Partial<AssetAssignment>);
+
+    const savedAssignment = await this.repo.save(newAssignment);
+    return Array.isArray(savedAssignment) ? savedAssignment[0] : savedAssignment;
   }
 }
