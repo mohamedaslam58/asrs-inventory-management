@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import Guard from '../components/Guard';
+import { Permission } from '../config/rbac';
+import AddSupplierModal from './components/AddSupplierModal';
 
 interface SupplierRow {
   id: number;
@@ -17,6 +20,7 @@ export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -53,9 +57,29 @@ export default function SuppliersPage() {
 
       {/* Action Button */}
       <div className="mb-6">
-        <button className="bg-[#38bdf8] hover:bg-[#0284c7] text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-1.5">
-          <span>+</span> Add supplier
-        </button>
+        <Guard permission={Permission.CREATE_SUPPLIER}>
+          <button onClick={() => setIsModalOpen(true)} className="bg-[#38bdf8] hover:bg-[#0284c7] text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-1.5 cursor-pointer">
+            <span>+</span> Add supplier
+          </button>
+        </Guard>
+        <AddSupplierModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSuccess={(newSupplier) => {
+            const normalizedSupplier = {
+              id: (newSupplier as Partial<SupplierRow> & { id?: number }).id ?? Date.now(),
+              supplier: (newSupplier as Partial<SupplierRow> & { name?: string; supplierName?: string }).supplier ?? (newSupplier as Partial<SupplierRow> & { name?: string; supplierName?: string }).name ?? (newSupplier as Partial<SupplierRow> & { name?: string; supplierName?: string }).supplierName ?? 'Unknown supplier',
+              email: (newSupplier as Partial<SupplierRow>).email ?? '',
+              phone: (newSupplier as Partial<SupplierRow>).phone ?? '',
+              items: (newSupplier as Partial<SupplierRow>).items ?? 0,
+              openPos: (newSupplier as Partial<SupplierRow>).openPos ?? 0,
+              totalPoValue: (newSupplier as Partial<SupplierRow>).totalPoValue ?? 0,
+            } as SupplierRow;
+
+            setSuppliers((prev) => [...prev, normalizedSupplier]);
+          }}
+        />
+        
       </div>
 
       {error && (

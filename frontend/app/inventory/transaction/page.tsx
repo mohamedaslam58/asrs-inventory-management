@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import StockTransactionModal from './components/StockTransactionModal';
+import Guard from '@/app/components/Guard';
+import { Permission } from '@/app/config/rbac';
 
 interface StockTransactionRow {
   id: number;
@@ -19,6 +22,8 @@ export default function StockTransactionsPage() {
   const [selectedType, setSelectedType] = useState('ALL');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [items, setItems] = useState<Array<{ id: number; name: string; stock: number }>>([]);
 
   const fetchTransactions = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
@@ -40,12 +45,55 @@ export default function StockTransactionsPage() {
     }
   }, []);
 
+  const fetchItems = useCallback(async (signal?: AbortSignal) => {
+  try {
+    const res = await apiFetch('/items/getItems', { signal });
+
+    // 1. Extract the raw array from possible response wrappers
+    let rawList: any[] = [];
+
+    if (Array.isArray(res)) {
+      rawList = res;
+    } else if (res && typeof res === 'object') {
+      const candidate = res.data ?? res.items ?? res.result ?? res.payload;
+      if (Array.isArray(candidate)) {
+        rawList = candidate;
+      }
+    }
+
+    // 2. Safely map elements to structured objects
+    const nextItems = rawList.map((item) => ({
+      id: Number(item.id),
+      name: String(item.name || ''),
+      stock: Number(item.stock ?? 0),
+    }));
+
+    setItems(nextItems);
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name !== 'AbortError') {
+      console.error('Failed to fetch items:', err);
+    }
+  }
+}, []);
+
   useEffect(() => {
     const controller = new AbortController();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- asynchronous fetch is intentionally triggered on mount
     void fetchTransactions(controller.signal);
-    return () => controller.abort();
-  }, [fetchTransactions]);
+    const initialFetchTimer = setTimeout(() => {
+      void fetchItems(controller.signal);
+    }, 0);
+
+    const interval = setInterval(() => {
+      void fetchItems();
+    }, 10000); // 10s auto-refresh interval
+
+    return () => {
+      controller.abort();
+      clearTimeout(initialFetchTimer);
+      clearInterval(interval);
+    }
+  }, [fetchItems, fetchTransactions]);
 
   // Combined text and dropdown filtering
   const filteredTransactions = useMemo(() => {
@@ -145,15 +193,25 @@ export default function StockTransactionsPage() {
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-          <button className="bg-[#38bdf8] hover:bg-[#0284c7] text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
-            + New
-          </button>
+          <Guard permission={Permission.CREATE_TRANSFER}>
+            <button onClick={() => setIsModalOpen(true)} className="bg-[#38bdf8] hover:bg-[#0284c7] text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer">
+              + New
+            </button>
+          </Guard>
           <button
             onClick={handleExportCSV}
-            className="bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-4 py-2 rounded-lg text-sm transition-colors"
+            className="bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer"
           >
             Export CSV
           </button>
+
+          {/* Modal */}
+      <StockTransactionModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={() => fetchItems()} // Refresh item list after transaction
+        items={items}
+      />
         </div>
       </div>
 

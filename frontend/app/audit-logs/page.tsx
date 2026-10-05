@@ -80,7 +80,7 @@ export default function AuditLogsPage() {
         <button
           onClick={exportCSV}
           disabled={logs.length === 0}
-          className="bg-[#0f1724] hover:bg-slate-800 border border-slate-700/80 text-slate-200 font-medium px-4 py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50"
+          className="bg-[#0f1724] hover:bg-slate-800 border border-slate-700/80 text-slate-200 font-medium px-4 py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50 cursor-pointer"
         >
           Export CSV
         </button>

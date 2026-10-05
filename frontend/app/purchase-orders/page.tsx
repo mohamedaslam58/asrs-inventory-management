@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { Permission } from '../config/rbac';
+import Guard from '../components/Guard';
 
 interface PurchaseOrderRow {
   id: number;
@@ -191,20 +193,22 @@ export default function PurchaseOrdersPage() {
 
       {/* Action Bar */}
       <div className="flex items-center gap-3 mb-6">
+        <Guard permission={Permission.CREATE_DRAFT_POS}>
         <button
           onClick={handleAutoCreate}
           disabled={isAutoCreating}
-          className="bg-[#38bdf8] hover:bg-[#0284c7] text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 disabled:opacity-50"
+          className="bg-[#38bdf8] hover:bg-[#0284c7] text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           {isAutoCreating ? 'Generating...' : 'Auto-create POs from low stock'}
         </button>
+        </Guard>
 
         <button
           onClick={handleExportCSV}
-          className="bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-4 py-2 rounded-lg text-sm transition-colors"
+          className="bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer"
         >
           Export CSV
         </button>

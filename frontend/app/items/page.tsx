@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import AddItemModal from './components/AddItemModal';
+import { Permission } from '../config/rbac';
+import Guard from '../components/Guard';
 
 interface Item {
   id: number;
@@ -21,6 +24,7 @@ export default function ItemsPage() {
   const [debouncedFilter, setDebouncedFilter] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   // 1. Debounce search input to avoid hitting API on every keystroke
   useEffect(() => {
@@ -70,28 +74,41 @@ export default function ItemsPage() {
 
   // CSV Export Handler
   const handleExportCSV = () => {
-    if (!items.length) return;
-    const headers = ["SKU", "Barcode", "Item", "Category", "Supplier", "Cost (AED)", "Stock", "Reorder Point"];
-    const rows = items.map(item => [
-      item.sku,
-      item.barcode,
-      `"${item.name.replace(/"/g, '""')}"`,
-      `"${item.category.replace(/"/g, '""')}"`,
-      `"${item.supplier.replace(/"/g, '""')}"`,
-      item.cost,
-      item.stock,
-      item.reorderPoint
-    ]);
+  if (!items.length) return;
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `items_export_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const headers = ["SKU", "Barcode", "Item", "Category", "Supplier", "Cost (AED)", "Stock", "Reorder Point"];
+  
+  const rows = items.map(item => {
+    // Helper function to safely escape CSV string values
+    const escapeCsv = (val: any) => `"${String(val ?? "").replace(/"/g, '""')}"`;
+
+    return [
+      escapeCsv(item.sku),
+      escapeCsv(item.barcode),
+      escapeCsv(item.name),
+      escapeCsv(item.category),
+      escapeCsv(item.supplier),
+      item.cost ?? 0,
+      item.stock ?? 0,
+      item.reorderPoint ?? 0
+    ];
+  });
+
+  // Use Blob instead of encodeURI for reliable handling of special characters & large datasets
+  const csvString = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+  const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `items_export_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  
+  // Cleanup
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
 
   return (
     <div className="p-6 bg-[#0f172a] text-slate-200 min-h-screen">
@@ -116,15 +133,25 @@ export default function ItemsPage() {
           className="bg-[#1e293b] border border-slate-700 text-slate-200 px-4 py-2 rounded-md w-full sm:w-72 focus:outline-none focus:border-cyan-500 placeholder-slate-500 text-sm"
         />
         <div className="flex gap-3">
-          <button 
-            onClick={() => alert("Open Add Item Modal")}
-            className="bg-[#0284c7] hover:bg-[#0369a1] text-white px-4 py-2 rounded-md font-medium text-sm flex items-center justify-center gap-1 transition-colors"
-          >
-            + Add item
-          </button>
+      {/* 2. Open Modal on Button Click */}
+      <Guard permission={Permission.CREATE_ITEM}>
+      <button 
+        onClick={() => setIsModalOpen(true)}
+        className="bg-[#0284c7] hover:bg-[#0369a1] text-white px-4 py-2 rounded-md font-medium text-sm flex items-center justify-center gap-1 transition-colors cursor-pointer"
+      >
+        + Add item
+      </button>
+      </Guard>
+
+      {/* 3. Pass state props to Modal */}
+      <AddItemModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={fetchItems}
+      />
           <button 
             onClick={handleExportCSV}
-            className="bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 px-4 py-2 rounded-md font-medium text-sm transition-colors"
+            className="bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 px-4 py-2 rounded-md font-medium text-sm transition-colors cursor-pointer"
           >
             Export CSV
           </button>

@@ -94,12 +94,12 @@ export default function InventoryMatrixPage() {
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-          <button className="bg-[#38bdf8] hover:bg-[#0284c7] text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
+          {/* <button className="bg-[#38bdf8] hover:bg-[#0284c7] text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer">
             + Stock transaction
-          </button>
+          </button> */}
           <button
             onClick={handleExportCSV}
-            className="bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-4 py-2 rounded-lg text-sm transition-colors"
+            className="bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer"
           >
             Export CSV
           </button>

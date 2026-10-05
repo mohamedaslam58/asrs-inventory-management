@@ -101,7 +101,7 @@ export default function ReportsPage() {
                 valuation.map((r) => [r.category, formatAED(r.abuDhabi), formatAED(r.dubai), formatAED(r.alAin), formatAED(r.totalValue)])
               )
             }
-            className="mt-2 bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-3 py-1.5 rounded text-xs transition-colors"
+            className="mt-2 bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-3 py-1.5 rounded text-xs transition-colors cursor-pointer"
           >
             Export CSV
           </button>
@@ -147,7 +147,7 @@ export default function ReportsPage() {
                 turnover.map((r) => [r.category, formatAED(r.cogs90d), formatAED(r.stockValue), r.turnsPerYear])
               )
             }
-            className="mt-2 bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-3 py-1.5 rounded text-xs transition-colors"
+            className="mt-2 bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-3 py-1.5 rounded text-xs transition-colors cursor-pointer"
           >
             Export CSV
           </button>
@@ -193,7 +193,7 @@ export default function ReportsPage() {
                 slowMoving.map((r) => [r.item, r.units, formatAED(r.valueTiedUp), r.noIssuesForDays])
               )
             }
-            className="mt-2 bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-3 py-1.5 rounded text-xs transition-colors"
+            className="mt-2 bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-3 py-1.5 rounded text-xs transition-colors cursor-pointer"
           >
             Export CSV
           </button>
@@ -239,7 +239,7 @@ export default function ReportsPage() {
                 forecast.map((r) => [r.item, r.avgDailyUse, r.forecastNext30d, r.stock, r.daysOfCover, r.suggestedOrder])
               )
             }
-            className="mt-2 bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-3 py-1.5 rounded text-xs transition-colors"
+            className="mt-2 bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-3 py-1.5 rounded text-xs transition-colors cursor-pointer"
           >
             Export CSV
           </button>

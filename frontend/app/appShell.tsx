@@ -96,16 +96,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen bg-zinc-950 text-zinc-100 overflow-hidden font-sans">
       {/* Sidebar */}
       <aside className="w-48 border-r border-zinc-800 bg-zinc-900 flex flex-col flex-shrink-0">
-        <div className="p-4 border-b border-zinc-800 flex items-center space-x-2">
-          <div className="h-3 w-3 rounded-full bg-emerald-500" />
-          <h2 className="text-lg font-bold text-emerald-500 tracking-tight">ASRS Control</h2>
-        </div>
+        <div className="p-4 border-b border-zinc-800 flex items-center justify-center">
+    <div className="flex h-10 w-full items-center justify-center rounded-lg bg-white px-3 py-1.5 shadow-sm ring-1 ring-white/10">
+      <img
+        src="https://www.asrs.ae/wp-content/uploads/2025/01/main-logo.svg"
+        alt="ASRS Control Logo"
+        className="h-full w-full object-contain"
+      />
+    </div>
+  </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const isActive =
               pathname === item.href ||
-              (item.href !== '/dashboard' && pathname.startsWith(item.href));
+              (item.href !== '/dashboard' && item.href !== '/inventory' && pathname.startsWith(item.href));
             return (
               <Link
                 key={item.href}
@@ -135,7 +140,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             onClick={handleLogout}
             disabled={loggingOut}
             aria-label="Sign out of application"
-            className="rounded-lg bg-red-600/10 px-3.5 py-1.5 text-xs font-semibold text-red-400 border border-red-500/20 transition hover:bg-red-600 hover:text-white disabled:opacity-50"
+            className="cursor-pointer rounded-lg bg-red-600/10 px-3.5 py-1.5 text-xs font-semibold text-red-400 border border-red-500/20 transition hover:bg-red-600 hover:text-white disabled:opacity-50"
           >
             {loggingOut ? 'Signing out...' : 'Sign Out'}
           </button>

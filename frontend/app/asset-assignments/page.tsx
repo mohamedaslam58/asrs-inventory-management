@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "@/lib/api-client";
+import Guard from '@/app/components/Guard';
+import { Permission } from '@/app/config/rbac';
+import AssignAssetModal, { AssetAssignment } from './components/AssignAssetModal';
 
 interface AssetAssignmentRow {
   id: number;
@@ -18,6 +21,26 @@ export default function AssetAssignmentPage() {
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleAssignmentCreated = (newAssignment: AssetAssignment) => {
+    const assignmentRow = {
+      id: newAssignment.id,
+      tag: newAssignment.tag,
+      asset: (newAssignment as Partial<AssetAssignmentRow>).asset ?? "",
+      employee: (newAssignment as Partial<AssetAssignmentRow>).employee ?? "",
+      department: (newAssignment as Partial<AssetAssignmentRow>).department ?? "",
+      issued:
+        (newAssignment as Partial<AssetAssignmentRow>).issued ??
+        new Date().toISOString().slice(0, 10),
+      status:
+        (newAssignment as Partial<AssetAssignmentRow>).status === "Returned"
+          ? "Returned"
+          : "Assigned",
+    } as AssetAssignmentRow;
+
+    setAssignments((prev) => [assignmentRow, ...prev]);
+  };
 
   const fetchAssignments = useCallback(
     async (query = "", signal?: AbortSignal) => {
@@ -117,16 +140,23 @@ export default function AssetAssignmentPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <Guard permission={Permission.CREATE_ASSET_ASSIGNMENT}>
           <button
-            onClick={() => alert("Assign asset action")}
-            className="bg-[#38bdf8] hover:bg-[#0284c7] text-slate-950 font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-1.5"
+            onClick={() => setIsModalOpen(true)}
+            className="bg-[#38bdf8] hover:bg-[#0284c7] text-slate-950 font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <span>+</span> Assign asset
           </button>
-
+          {/* Modal */}
+      <AssignAssetModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handleAssignmentCreated}
+      />
+          </Guard>
           <button
             onClick={handleExportCSV}
-            className="bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-4 py-2.5 rounded-lg text-sm transition-colors"
+            className="bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 font-medium px-4 py-2.5 rounded-lg text-sm transition-colors cursor-pointer"
           >
             Export CSV
           </button>

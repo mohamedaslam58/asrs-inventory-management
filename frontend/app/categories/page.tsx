@@ -1,7 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import AddCategoryModal from './components/AddCategoryModal';
+import Guard from '../components/Guard';
+import { Permission } from '../config/rbac';
 
 interface CategoryRow {
   id: number;
@@ -11,17 +14,29 @@ interface CategoryRow {
   value: number;
 }
 
+interface Item {
+  id: number;
+  name: string;
+  categoryId: number;
+  stock: number;
+  unitCost: number;
+}
+
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [items, setItems] = useState<Item[]>([]);
 
   const fetchCategories = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
     try {
       const data = (await apiFetch('/categories', { signal })) as CategoryRow[];
+      const data_items = (await apiFetch('/items/getItems', { signal })) as Item[];
       setCategories(data);
+      setItems(data_items);
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== 'AbortError') {
         console.error('Failed to fetch categories:', err);
@@ -44,32 +59,52 @@ export default function CategoriesPage() {
     };
   }, [fetchCategories]);
 
-  const handleAddCategory = async () => {
-    const name = prompt("Enter category name:");
-    if (!name || !name.trim()) return;
+  const categoriesWithMetrics = useMemo(() => {
+    return categories.map((cat) => {
+      // Filter items belonging to this category
+      const categoryItems = items.filter((item) => item.categoryId === cat.id);
 
-    try {
-      await apiFetch('/categories', {
-        method: 'POST',
-        body: JSON.stringify({ name: name.trim() }),
-      });
-      void fetchCategories();
-    } catch (err) {
-      alert("Failed to add category.");
-    }
-  };
+      const totalItems = categoryItems.length;
+      const totalUnits = categoryItems.reduce(
+        (sum, item) => sum + (Number(item.stock) || 0),
+        0
+      );
+      const totalValue = categoryItems.reduce(
+        (sum, item) =>
+          sum + (Number(item.stock) || 0) * (Number(item.unitCost) || 0),
+        0
+      );
+
+      return {
+        ...cat,
+        itemsCount: totalItems,
+        units: totalUnits,
+        value: totalValue,
+      };
+    });
+  }, [categories, items]);
 
   return (
     <div className="p-8 bg-[#0b0f17] text-slate-200 min-h-screen font-sans">
       <h1 className="text-3xl font-bold text-white mb-6">Categories</h1>
 
       <div className="mb-6">
-        <button
-          onClick={handleAddCategory}
-          className="bg-[#38bdf8] hover:bg-[#0284c7] text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-1"
-        >
-          + Add category
-        </button>
+        <Guard permission={Permission.CREATE_CATEGORY}>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-[#38bdf8] hover:bg-[#0284c7] text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-1 cursor-pointer"
+          >
+            + Add category
+          </button>
+        </Guard>
+
+        <AddCategoryModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSuccess={() => {
+            void fetchCategories();
+          }}
+        />
       </div>
 
       {error && (
@@ -79,40 +114,26 @@ export default function CategoriesPage() {
       )}
 
       <div className="overflow-x-auto rounded-lg border border-slate-800/80 bg-[#0f172a]/40 shadow-sm">
-        <table className="w-full text-left text-sm text-slate-300 border-collapse">
-          <thead className="text-xs uppercase text-slate-400 font-semibold border-b border-slate-800/80 bg-[#0f172a]/80">
+        <table className="w-full text-left text-xs text-zinc-300">
+          <thead className="bg-zinc-950 text-zinc-400 border-b border-zinc-800 uppercase tracking-wider">
             <tr>
-              <th className="px-6 py-3.5">CATEGORY</th>
-              <th className="px-6 py-3.5">ITEMS</th>
-              <th className="px-6 py-3.5">UNITS</th>
-              <th className="px-6 py-3.5">VALUE</th>
+              <th className="p-3">Category Name</th>
+              <th className="p-3">Items</th>
+              <th className="p-3">Units (Stock)</th>
+              <th className="p-3">Total Value</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/60">
-            {isLoading ? (
-              <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
-                  Loading categories...
+          <tbody className="divide-y divide-zinc-800">
+            {categoriesWithMetrics.map((category) => (
+              <tr key={category.id} className="hover:bg-zinc-800/50">
+                <td className="p-3 font-medium text-white">{category.name}</td>
+                <td className="p-3">{category.itemsCount}</td>
+                <td className="p-3">{category.units}</td>
+                <td className="p-3 font-semibold text-emerald-400">
+                  AED {category.value.toFixed(2)}
                 </td>
               </tr>
-            ) : categories.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
-                  No categories found.
-                </td>
-              </tr>
-            ) : (
-              categories.map((cat) => (
-                <tr key={cat.id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="px-6 py-4 font-medium text-white">{cat.name}</td>
-                  <td className="px-6 py-4 text-slate-300">{cat.items}</td>
-                  <td className="px-6 py-4 text-slate-300">{cat.units.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-slate-300 font-medium">
-                    AED {Number(cat.value).toLocaleString('en-US', { minimumFractionDigits: 0 })}
-                  </td>
-                </tr>
-              ))
-            )}
+            ))}
           </tbody>
         </table>
       </div>
